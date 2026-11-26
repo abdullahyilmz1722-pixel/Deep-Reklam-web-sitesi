@@ -313,7 +313,7 @@ async function local(t) {
   }
   // sohbet tamamlandıktan sonra: soruları cevapla, yeni konu açılırsa onu da konuş
   const g = groupOf(r);
-  if (!isQ(t) && g && g.s >= 2.2 && g.g !== S.g) { await say(F_.new_topic); return startGroup(g.g); }
+  if (g && g.s >= 2.2 && g.g !== S.g) { if (isQ(t)) { if (G[g.g].yes) await say(G[g.g].yes); else await answerQuestion(t, r); } S.first = t.slice(0, 200); S.asked = []; await say(F_.new_topic); return startGroup(g.g); }
   if (await answerQuestion(t, r)) return;
   if (isQ(t)) { await say(C.fallback); links([{wa: 1, u: waUrl(C.wa_head + '\n' + t), t: C.wa}]); return; }
   await say(pick(F_.smalltalk));
