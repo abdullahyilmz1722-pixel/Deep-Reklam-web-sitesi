@@ -10,7 +10,14 @@ OUT = os.path.join(os.path.dirname(ROOT), "_site")
 SITE_URL = os.environ.get("SITE_URL", "https://abdullahyilmz1722-pixel.github.io/Deep-Reklam-web-sitesi").rstrip("/")
 FORM_ENDPOINT = os.environ.get("FORM_ENDPOINT", "")
 CHAT_ENDPOINT = os.environ.get("CHAT_ENDPOINT", "")
-VER = "3"
+import hashlib
+def _ver():  # varlık dosyaları ve içerik değişince sürüm otomatik değişir (tarayıcı önbelleğini kırar)
+    h = hashlib.sha1()
+    for d in ("assets",):
+        for f in sorted(os.listdir(os.path.join(ROOT, d))): h.update(open(os.path.join(ROOT, d, f), "rb").read())
+    for f in ("content.py", "chatbot.py"): h.update(open(os.path.join(ROOT, f), "rb").read())
+    return h.hexdigest()[:8]
+VER = _ver()
 LANGS = ["tr", "en"]
 e = lambda s: html.escape(str(s), quote=True)
 
@@ -144,7 +151,7 @@ def page(key, lang, title, desc, body, ld=None, noindex=False, cls=""):
     return (head_html(key, lang, title, desc, ld or [], noindex) +
             f'<body class="{cls}"><a class="skip" href="#main">{e(u["skip"])}</a>{nav_html(lang, key or "home")}<main id="main">{body}</main>{footer_html(lang)}'
             f'<button class="cb-fab" type="button" aria-haspopup="dialog" aria-label="{e(chatbot.UI[lang]["open"])}">{ic("chat","ic lg")}<span>{e(chatbot.UI[lang]["title"])}</span></button>'
-            f'<script>window.DR={json.dumps({"lang":lang,"wa":SITE["wa"],"endpoint":FORM_ENDPOINT,"root":pre,"chat":{"endpoint":CHAT_ENDPOINT,**chatbot.UI[lang]},"ui":{k:u[k] for k in ["f_err","f_copied","f_ok","f_fail","f_wa_head","replay","demo"]}}, ensure_ascii=False)}</script>'
+            f'<script>window.DR={json.dumps({"lang":lang,"wa":SITE["wa"],"endpoint":FORM_ENDPOINT,"root":pre,"ver":VER,"chat":{"endpoint":CHAT_ENDPOINT,**chatbot.UI[lang]},"ui":{k:u[k] for k in ["f_err","f_copied","f_ok","f_fail","f_wa_head","replay","demo"]}}, ensure_ascii=False)}</script>'
             f'<script src="{pre}assets/app.js?v={VER}" defer></script></body></html>')
 
 # ------------------------------------------------------------ JSON-LD

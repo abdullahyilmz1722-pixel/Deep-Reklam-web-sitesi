@@ -167,7 +167,7 @@ let lastPick = '';
 const pick = a => { let x, k = 0; do { x = a[Math.floor(Math.random() * a.length)]; } while (x === lastPick && k++ < 5); lastPick = x; return x; };
 const short = (s, n = 2) => (s.match(/[^.!?]+[.!?]+/g) || [s]).slice(0, n).join(' ').trim();
 let KB = null;
-const loadKB = () => KB ? Promise.resolve(KB) : fetch(ROOT + 'assets/kb-' + D.lang + '.json').then(r => r.json()).then(j => KB = j.map(x => ({...x, tt: toks(x.t), kt: toks(x.k)}))).catch(() => KB = []);
+const loadKB = () => KB ? Promise.resolve(KB) : fetch(ROOT + 'assets/kb-' + D.lang + '.json?v=' + (D.ver || '')).then(r => r.json()).then(j => KB = j.map(x => ({...x, tt: toks(x.t), kt: toks(x.k)}))).catch(() => KB = []);
 function rank(q) {
   const qt = toks(q); if (!qt.length || !KB) return [];
   return KB.map(x => { let s = 0; for (const t of qt) s += x.tt.some(e => hit(t, e)) ? 1.5 : x.kt.some(e => hit(t, e)) ? 1 : 0; return {x, s: s * x.w + (s > 0 && x.id.startsWith('p-') ? 0.6 : 0)}; })
@@ -187,8 +187,8 @@ function nameFrom(t) {
 
 /* durum: sekme açık kaldıkça korunur, sunucuya gitmez */
 let S = {step: 'start', name: '', g: '', qi: 0, ans: [], unclear: 0, tip: false, log: [], hist: [], done: false, asked: [], first: ''};
-try { const s = sessionStorage.getItem('dr-chat-' + D.lang); if (s) S = {...S, ...JSON.parse(s)}; } catch (_) {}
-const save = () => { try { sessionStorage.setItem('dr-chat-' + D.lang, JSON.stringify({...S, log: S.log.slice(-60), hist: S.hist.slice(-20)})); } catch (_) {} };
+try { const s = sessionStorage.getItem('dr-chat2-' + D.lang); if (s) S = {...S, ...JSON.parse(s)}; } catch (_) {}
+const save = () => { try { sessionStorage.setItem('dr-chat2-' + D.lang, JSON.stringify({...S, log: S.log.slice(-60), hist: S.hist.slice(-20)})); } catch (_) {} };
 const fill = s => s.replace(/\{n\}/g, S.name || '').replace(/\s+([.!?,])/g, '$1').replace(/\s{2,}/g, ' ').trim();
 
 const box = document.createElement('div');
