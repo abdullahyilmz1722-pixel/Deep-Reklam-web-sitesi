@@ -56,3 +56,21 @@ Wix Studio, dışarıdan HTML aktarmayı ve sayfa tasarımını API ile kurmayı
 Bu repodaki `content.py` metinleri, sayfa yapısı, renkler (`#0e0e0f`, `#a47a1e`, `#d4aa4f`) ve yazı tipleri (Sora, Inter)
 Wix sürümü için kaynak olarak kullanılabilir. Wix'e özgü özellikler (Wix Forms, Wix CMS, Wix Multilingual) GitHub
 sürümünde yoktur; buradaki karşılıkları statik sayfalar ve WhatsApp tabanlı formlardır.
+
+## DEEP Asistan (sohbet botu)
+
+Sağ alttaki asistan iki modda çalışır:
+
+1. **Yerel mod (varsayılan, ücretsiz):** Tarayıcıda çalışır, `src/chatbot.py` ve `src/content.py`'den üretilen
+   bilgi tabanıyla yanıt verir, ilgili sayfaya ve WhatsApp'a yönlendirir. Hiçbir veri gönderilmez.
+   Yeni soru-cevap eklemek için `src/chatbot.py` içindeki `intents` listesine satır ekleyin.
+2. **Yapay zekâ modu:** `worker/` klasöründeki Cloudflare Worker, soruları Claude modeline gönderir.
+   ```bash
+   cd worker
+   npx wrangler login
+   npx wrangler secret put ANTHROPIC_API_KEY   # anahtar yalnızca Cloudflare'de saklanır
+   npx wrangler deploy                          # çıktıdaki https://deep-asistan....workers.dev adresini kopyalayın
+   ```
+   Ardından GitHub'da **Settings → Secrets and variables → Actions → Variables** bölümüne
+   `CHAT_ENDPOINT` = worker adresi ekleyin ve Actions'ı yeniden çalıştırın. Gizlilik politikası metni
+   bu moda göre otomatik güncellenir. Yapay zekâ servisine ulaşılamazsa asistan yerel moda döner.

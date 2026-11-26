@@ -145,3 +145,82 @@ $$('form.lead').forEach(f => {
   cp && cp.addEventListener('click', async () => { try { await navigator.clipboard.writeText($('.fprev', f).textContent); cp.textContent = D.ui.f_copied; } catch (_) {} });
 });
 }
+
+/* ---------- DEEP Asistan: sohbet botu
+   Varsayılan: tarayıcıda çalışan, sitedeki bilgi tabanından yanıt veren asistan (veri göndermez).
+   CHAT_ENDPOINT tanımlıysa: mesajlar sunucu tarafı yapay zekâya gider; hata olursa yerel asistana döner. */
+{
+const D = window.DR || {}, C = D.chat; if (!C) throw 0;
+const $ = (s, r = document) => r.querySelector(s), ROOT = D.root || '', TR = D.lang === 'tr';
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const MAP = {'ç':'c','ğ':'g','ı':'i','ö':'o','ş':'s','ü':'u','â':'a','î':'i','û':'u'};
+const norm = s => String(s).toLocaleLowerCase('tr').replace(/[çğıöşüâîû]/g, c => MAP[c]).replace(/[^a-z0-9\s]/g, ' ');
+const STOP = new Set(('ve ile bir bu su o da de mi mu mi midir ben biz siz sen icin gibi ama veya ya ne nasil hangi var yok mu ki cok daha en her olarak olan istiyorum isterim lazim bana bize size hakkinda bilgi almak yapiyor musunuz yapar misiniz musunuz misiniz neler nedir yapmak yaptirmak veriyor veriyorsunuz verir yapiyorsunuz sistem sistemi deep firma ' +
+  'the a an and or of to for in on with is are do does doing make you your we our i me my can could would what how which about please want need have has it this that system offer provide').split(' '));
+const toks = s => norm(s).replace(/deep\s+reklam/g, ' ').split(/\s+/).filter(t => t.length > 1 && !STOP.has(t));
+const hit = (q, e) => { if (q === e) return true; let i = 0; const n = Math.min(q.length, e.length); while (i < n && q[i] === e[i]) i++; return (i === n && n >= 3) || i >= 5; };
+let KB = null, hist = [], open = false;
+const loadKB = () => KB ? Promise.resolve(KB) : fetch(ROOT + 'assets/kb-' + D.lang + '.json').then(r => r.json()).then(j => KB = j.map(x => ({...x, tt: toks(x.t), kt: toks(x.k)}))).catch(() => KB = []);
+function rank(q) {
+  const qt = toks(q); if (!qt.length || !KB) return [];
+  return KB.map(x => { let s = 0; for (const t of qt) s += x.tt.some(e => hit(t, e)) ? 1.5 : x.kt.some(e => hit(t, e)) ? 1 : 0; return {x, s: s * x.w + (s > 0 && x.id.startsWith('p-') ? 0.6 : 0)}; })
+    .filter(r => r.s >= 1).sort((a, b) => b.s - a.s);
+}
+const waUrl = q => `https://wa.me/${D.wa}?text=${encodeURIComponent(C.wa_head + (q ? '\n' + q : ''))}`;
+
+const fab = $('.cb-fab'); if (!fab) throw 0;
+const box = document.createElement('div');
+box.className = 'cb'; box.hidden = true; box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', C.title);
+box.innerHTML = `<div class="cb-h"><span class="cb-av">AI</span><span class="cb-ht"><b>${esc(C.title)}</b><small>${esc(C.endpoint ? C.sub_ai : C.sub_local)}</small></span><button type="button" class="cb-x" aria-label="${esc(C.close)}">×</button></div>
+<div class="cb-m" aria-live="polite"></div><div class="cb-c"></div>
+<form class="cb-f"><label class="sr" for="cb-in">${esc(C.ph)}</label><input id="cb-in" autocomplete="off" maxlength="500" placeholder="${esc(C.ph)}"><button type="submit" aria-label="${esc(C.send)}"><svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M4 12l16-8-6 16-2-7z"/></svg></button></form>
+<p class="cb-n">${esc(C.note)}</p>`;
+document.body.appendChild(box);
+const M = $('.cb-m', box), CH = $('.cb-c', box), F = $('.cb-f', box), IN = $('#cb-in', box);
+
+function bubble(who, text) { const d = document.createElement('div'); d.className = 'cb-b ' + who; d.textContent = text; M.appendChild(d); M.scrollTop = M.scrollHeight; return d; }
+function actions(links, q) {
+  const d = document.createElement('div'); d.className = 'cb-a';
+  d.innerHTML = links.map(l => `<a href="${esc(ROOT + l.u)}">${esc(l.label)}</a>`).join('') +
+    `<a class="wa" href="${esc(waUrl(q))}" target="_blank" rel="noopener">${esc(C.wa)}</a>`;
+  M.appendChild(d); M.scrollTop = M.scrollHeight;
+}
+function chips() { CH.innerHTML = C.chips.map(c => `<button type="button">${esc(c)}</button>`).join(''); CH.querySelectorAll('button').forEach(b => b.onclick = () => ask(b.textContent)); }
+
+function localAnswer(q) {
+  if (/(\+?\d[\d\s()-]{8,}\d)/.test(q)) return {text: C.phone_note, links: []};
+  const r = rank(q);
+  if (!r.length) return {text: C.fallback, links: [{u: TR ? 'iletisim.html' : 'en/contact.html', label: C.form}]};
+  const best = r[0].x, links = [], ttl = u => (KB.find(x => x.u === u && x.id.startsWith('p-')) || {}).t;
+  if (best.u) links.push({u: best.u, label: (ttl(best.u) || C.go) + ' →'});
+  const seen = new Set([best.u]);
+  for (const o of r.slice(1)) { if (links.length >= 3) break; const t = ttl(o.x.u); if (o.x.u && t && !seen.has(o.x.u) && o.s >= r[0].s * 0.6) { seen.add(o.x.u); links.push({u: o.x.u, label: t}); } }
+  return {text: best.a, links};
+}
+async function ask(q) {
+  q = q.trim().slice(0, 500); if (!q) return;
+  CH.innerHTML = ''; bubble('u', q); hist.push({role: 'user', content: q});
+  const ty = bubble('a t', ''); ty.innerHTML = '<i></i><i></i><i></i>';
+  await loadKB();
+  let ans = null;
+  if (C.endpoint) {
+    try {
+      const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 20000);
+      const r = await fetch(C.endpoint, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({lang: D.lang, page: location.pathname, messages: hist.slice(-10)}), signal: ctl.signal});
+      clearTimeout(tm);
+      if (r.ok) { const j = await r.json(); if (j && typeof j.reply === 'string' && j.reply.trim()) { const loc = localAnswer(q); ans = {text: j.reply.trim().slice(0, 2000), links: loc.text === C.fallback ? [] : loc.links.slice(0, 2)}; } }
+    } catch (_) {}
+  } else await new Promise(r => setTimeout(r, 450));
+  if (!ans) ans = localAnswer(q);
+  ty.remove(); bubble('a', ans.text); actions(ans.links, q); hist.push({role: 'assistant', content: ans.text});
+  if (hist.length > 20) hist = hist.slice(-20);
+}
+function toggle(v) {
+  open = v ?? !open; box.hidden = !open; fab.setAttribute('aria-expanded', open); fab.classList.toggle('on', open);
+  if (open) { loadKB(); if (!M.children.length) { bubble('a', C.hello); chips(); } setTimeout(() => IN.focus(), 50); } else fab.focus();
+}
+fab.addEventListener('click', () => toggle());
+$('.cb-x', box).addEventListener('click', () => toggle(false));
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && open) toggle(false); });
+F.addEventListener('submit', e => { e.preventDefault(); const v = IN.value; IN.value = ''; ask(v); });
+}

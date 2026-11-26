@@ -25,6 +25,7 @@ jobs:
           # Kendi alan adınızı aldığınızda: Settings > Secrets and variables > Actions > Variables > SITE_URL ve CUSTOM_DOMAIN
           SITE_URL: ${{ vars.SITE_URL || format('https://{0}.github.io/{1}', github.repository_owner, github.event.repository.name) }}
           FORM_ENDPOINT: ${{ vars.FORM_ENDPOINT }}
+          CHAT_ENDPOINT: ${{ vars.CHAT_ENDPOINT }}
         run: python3 src/build.py
       - name: Bağlantı ve SEO kontrolü
         run: python3 src/check.py

@@ -3,17 +3,26 @@
 Ortam değişkenleri: SITE_URL (kanonik adres), FORM_ENDPOINT (isteğe bağlı form POST adresi)."""
 import os, json, shutil, html, re
 from content import SITE, UI, P, POSTS, AI_KEYS, SRV_KEYS
+import chatbot
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(os.path.dirname(ROOT), "_site")
 SITE_URL = os.environ.get("SITE_URL", "https://abdullahyilmz1722-pixel.github.io/Deep-Reklam-web-sitesi").rstrip("/")
 FORM_ENDPOINT = os.environ.get("FORM_ENDPOINT", "")
-VER = "1"
+CHAT_ENDPOINT = os.environ.get("CHAT_ENDPOINT", "")
+VER = "2"
 LANGS = ["tr", "en"]
 e = lambda s: html.escape(str(s), quote=True)
 
 for p in POSTS:
     P[p["key"]] = dict(p, kind="post")
+_CHAT_PRIV = {
+ "tr": ("Sohbet asistanı", ["Sitedeki sohbet asistanı yazdıklarınızı yapay zekâ yanıtı üretmek için sunucumuz üzerinden yapay zekâ hizmet sağlayıcısına (Anthropic) iletir. Sohbetler tarafımızca kaydedilmez. Lütfen asistana kişisel veya hassas bilgi yazmayın."] if CHAT_ENDPOINT else
+        ["Sitedeki sohbet asistanı tamamen tarayıcınızda çalışır; yazdıklarınız bize veya üçüncü kişilere gönderilmez ve kaydedilmez. Ekibe ulaşmak için WhatsApp butonunu kullandığınızda mesajınız WhatsApp üzerinden iletilir."]),
+ "en": ("Chat assistant", ["The chat assistant on this site sends what you type through our server to an AI service provider (Anthropic) to generate replies. We don't store conversations. Please don't share personal or sensitive details with the assistant."] if CHAT_ENDPOINT else
+        ["The chat assistant on this site runs entirely in your browser; what you type is not sent to us or any third party and is not stored. When you use the WhatsApp button to reach our team, your message is sent via WhatsApp."])}
+for _l in ("tr", "en"):
+    P["privacy"][_l]["body"].insert(3, _CHAT_PRIV[_l])
 NAVDEF = {"ai": ("AI Otomasyon", "AI Automation"), "about": ("Hakkımızda", "About"), "projects": ("Projeler", "Projects"),
           "blog": ("Blog", "Blog"), "faqpage": ("SSS", "FAQ"), "contact": ("İletişim", "Contact"),
           "privacy": ("Gizlilik Politikası", "Privacy Policy"), "kvkk": ("KVKK Aydınlatma Metni", "Data Protection Notice"), "cookies": ("Çerez Politikası", "Cookie Policy")}
@@ -134,7 +143,8 @@ def page(key, lang, title, desc, body, ld=None, noindex=False, cls=""):
     u = UI[lang]; pre = '../' if lang == 'en' else ''
     return (head_html(key, lang, title, desc, ld or [], noindex) +
             f'<body class="{cls}"><a class="skip" href="#main">{e(u["skip"])}</a>{nav_html(lang, key or "home")}<main id="main">{body}</main>{footer_html(lang)}'
-            f'<script>window.DR={json.dumps({"lang":lang,"wa":SITE["wa"],"endpoint":FORM_ENDPOINT,"ui":{k:u[k] for k in ["f_err","f_copied","f_ok","f_fail","f_wa_head","replay","demo"]}}, ensure_ascii=False)}</script>'
+            f'<button class="cb-fab" type="button" aria-haspopup="dialog" aria-label="{e(chatbot.UI[lang]["open"])}">{ic("chat","ic lg")}<span>{e(chatbot.UI[lang]["title"])}</span></button>'
+            f'<script>window.DR={json.dumps({"lang":lang,"wa":SITE["wa"],"endpoint":FORM_ENDPOINT,"root":pre,"chat":{"endpoint":CHAT_ENDPOINT,**chatbot.UI[lang]},"ui":{k:u[k] for k in ["f_err","f_copied","f_ok","f_fail","f_wa_head","replay","demo"]}}, ensure_ascii=False)}</script>'
             f'<script src="{pre}assets/app.js?v={VER}" defer></script></body></html>')
 
 # ------------------------------------------------------------ JSON-LD
@@ -389,6 +399,11 @@ def main():
             elif kind == "contact": h = r_contact(lang)
             p = path(k, lang)
             write(p + "index.html" if p in ("", "en/") else p, h)
+    for lang in LANGS:
+        write(f"assets/kb-{lang}.json", json.dumps(chatbot.kb(lang, path), ensure_ascii=False, separators=(",", ":")))
+    wk = os.path.join(os.path.dirname(ROOT), "worker", "knowledge.js")
+    os.makedirs(os.path.dirname(wk), exist_ok=True)
+    open(wk, "w", encoding="utf-8").write("// build.py tarafından üretilir — elle düzenlemeyin\nexport const KNOWLEDGE = " + json.dumps(chatbot.knowledge_text(), ensure_ascii=False) + ";\n")
     write("404.html", r_404())
     write(".nojekyll", "")
     # sitemap
