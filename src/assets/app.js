@@ -174,7 +174,10 @@ function rank(q) {
     .filter(r => r.s >= 1).sort((a, b) => b.s - a.s);
 }
 const isQ = t => /\?\s*$/.test(t) || /^(ne|neden|nasil|kac|hangi|nerede|nereden|kim|niye|what|how|why|where|when|which|who|do|does|can|could|is|are|will)\b/.test(norm(t).trim()) || /\b(mi|mu|misiniz|musunuz|miyim|muyum|miyiz|mudur|midir)\b/.test(norm(t));
-const groupOf = r => { for (const o of r) { const m = o.x.id.match(/^[pg]-(.+)$/); if (m && C.group_of[m[1]]) return {g: C.group_of[m[1]], s: o.s, key: m[1]}; } return null; };
+const VEH = /\b(arac|araclar|araci|aracimi|araclarimi)\b.*\b(kapla|giydir|folyo)|\b(kapla\w*|giydir\w*)\b.*\barac|\bfilo\b|\b(wrap|wraps|wrapping|branding)\b.*\b(vans?|cars?|trucks?|vehicles?|fleet)\b|\b(vans?|cars?|trucks?|vehicles?)\b.*\bwrap|\bfleet\b/;
+let lastT = '';
+const groupOf0 = r => { for (const o of r) { const m = o.x.id.match(/^[pg]-(.+)$/); if (m && C.group_of[m[1]]) return {g: C.group_of[m[1]], s: o.s, key: m[1]}; } return null; };
+const groupOf = r => { if (VEH.test(norm(lastT))) return {g: 'vehicle', s: 3, key: 'signage'}; return groupOf0(r); };
 const intentOf = (r, ids) => r.find(o => ids.includes(o.x.id) && o.s >= 1.6);
 const cap = w => w.charAt(0).toLocaleUpperCase('tr') + w.slice(1).toLocaleLowerCase('tr');
 function nameFrom(t) {
@@ -228,7 +231,7 @@ function waMessage() {  // WhatsApp'ta gönderilecek eksiksiz hazır mesaj
 }
 function summaryText() {
   const L = [...(S.name ? [`${F_.sum_name}: ${S.name}`] : []), `${F_.sum_need}: ${G[S.g] ? G[S.g].label : '-'}`];
-  S.ans.forEach(a => L.push(`${a[0]}: ${a[1]}`));
+  S.ans.filter(a => a[1] !== '-').forEach(a => L.push(`${a[0]}: ${a[1]}`));
   return L;
 }
 async function startGroup(g) {
@@ -251,7 +254,7 @@ async function answerQuestion(t, r) {  // sitedeki bilgiyle kısa cevap; true d�
 
 async function local(t) {
   await loadKB();
-  const r = rank(t);
+  lastT = t; const r = rank(t);
   if (isQ(t)) { S.asked.push(t.slice(0, 160)); save(); }
   if (/(\+?\d[\d\s()-]{8,}\d)/.test(t)) { await say(C.phone_note); links([{wa: 1, u: waUrl(C.wa_head + '\n' + t), t: C.wa}]); if (S.step === 'q') await say(fill(F_.resume.replace('{q}', curQ().charAt(0).toLocaleLowerCase('tr') + curQ().slice(1)))); return; }
   const human = intentOf(r, ['i-human', 'i-phone']), gg = groupOf(r);
@@ -267,7 +270,7 @@ async function local(t) {
     const n = nameFrom(t);
     if (topic) {
       S.g = g0.g; S.first = t.slice(0, 200); save();
-      if (isQ(t)) await answerQuestion(t, r);
+      if (isQ(t)) { if (G[S.g].yes) await say(G[S.g].yes); else await answerQuestion(t, r); }
       if (!S.name) { const nm = n && !(g0.s >= 2.2) ? n : null; if (nm) { S.name = nm; save(); } else { S.step = 'name'; save(); await say(F_.name_first); return; } }
       await say(pick(F_.ack)); return startGroup(S.g);
     }
