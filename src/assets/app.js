@@ -219,6 +219,21 @@ const links = l => push({k: 'l', l});
 const chips = arr => { CH.innerHTML = (arr || []).map(c => `<button type="button">${esc(c)}</button>`).join(''); CH.querySelectorAll('button').forEach(b => b.onclick = () => send(b.textContent)); };
 const waUrl = text => `https://wa.me/${D.wa}?text=${encodeURIComponent(text)}`;
 const curQ = () => G[S.g].qs[S.qi][1];
+const CREATOR = /(kim (yapti|yazdi|gelistirdi|kodladi|uretti|tasarladi)|yapimcin|seni kim|sizi kim|hangi yapay zeka|hangi model|altyapin|chatgpt|claude|gemini|\bgpt\b|openai|anthropic|who (made|built|created|developed|coded|programmed) you|which ai|what model|are you chatgpt)/;
+const UNDEC = /(kararsiz|bilmiyorum|emin degilim|ne onerirsiniz|ne onerirsin|ne yapmaliyim|fikrim yok|siz soyleyin|sen soyle|oneriniz|onerin ne|tavsiye|what do you recommend|not sure|undecided|no idea|any suggestions|suggest something|you tell me)/;
+const smallTalk = t => { const n = norm(t); for (const k in F_.small) if (new RegExp('\\b(' + k + ')').test(n)) return F_.small[k]; return null; };
+const cleanSector = t => t.replace(/[.!]+$/, '').replace(/\s+(var|isletiyorum|işletiyorum|sahibiyim|calisiyorum|çalışıyorum)$/i, '').replace(/^(bir|ben)\s+/i, '').split(/\s+/).map(w => w.length > 5 ? w.replace(/(ım|im|um|üm|ımız|imiz)$/i, '') : w).join(' ').slice(0, 60);
+const sectorOf = t => { const n = norm(t); for (const [re, label, opts] of C.sectors) if (new RegExp('(' + re + ')').test(n)) return {label, opts}; return null; };
+const sectorOpts = t => (sectorOf(t) || {}).opts || null;
+async function steer() {  // sohbeti nazikçe müşterinin işine getirir (yalnızca bir kez)
+  if (S.sector || S.askedSector || S.g) return false;
+  S.askedSector = true; S.await = 'sector'; save(); await say(F_.ask_sector); return true;
+}
+async function offerOptions() {
+  const so = S.sector && sectorOf(S.sector), o = so ? so.opts : C.default_opts;
+  await say((so ? F_.options_intro.replace('{s}', so.label) : F_.options_intro_generic) + '\n• ' + o.join('\n• ') + '\n' + F_.options_end);
+  chips(o);
+}
 
 function waMessage() {  // WhatsApp'ta gönderilecek eksiksiz hazır mesaj
   const L = [S.name ? fill(F_.wa_intro) : F_.wa_intro_anon, ''];
@@ -235,8 +250,9 @@ function summaryText() {
   return L;
 }
 async function startGroup(g) {
-  S.g = g; S.qi = 0; S.ans = []; S.tip = false; S.step = 'q'; save();
-  await say(G[g].intro); await say(curQ());
+  S.g = g; S.qi = 0; S.ans = []; S.tip = false; S.step = 'q'; S.await = ''; save();
+  if (S.sector && /^(Sektör|Industry)$/.test(G[g].qs[0][0])) { S.ans.push([G[g].qs[0][0], S.sector]); S.qi = 1; save(); }
+  await say(G[g].intro); await say(curQ()); if (S.qi > 0 && G[g].qs[S.qi][2]) {}
 }
 async function finish() {
   S.step = 'done'; S.done = true; save();
@@ -263,24 +279,42 @@ async function local(t) {
   if (S.step !== 'idle' && intentOf(r, ['i-how']) && toks(t).length <= 3) { await say(F_.how.split(/[.!] /)[0] + '!'); return; }
 
   if (/\b(ne is yap|neler yap|ne yapiyorsunuz|hizmetleriniz|hizmetleriniz neler|neler sunuyorsunuz|what do you do|your services|what services|what can you do)/.test(norm(t))) {
-    await say(F_.services); if (S.step === 'q' && !S.resumed) { S.resumed = true; save(); const q = curQ(); await say(F_.resume.replace('{q}', q.charAt(0).toLocaleLowerCase('tr') + q.slice(1))); } return;
+    await say(F_.services); if (S.step === 'idle') { await steer(); return; } if (S.step === 'q' && !S.resumed) { S.resumed = true; save(); const q = curQ(); await say(F_.resume.replace('{q}', q.charAt(0).toLocaleLowerCase('tr') + q.slice(1))); } return;
+  }
+  if (CREATOR.test(norm(t))) {
+    const b = KB.find(x => x.id === 'i-bot'); if (b) await say(b.a);
+    if (S.step === 'idle') await steer();
+    else if (S.step === 'q' && !S.resumed) { S.resumed = true; save(); const q = curQ(); await say(F_.resume.replace('{q}', q.charAt(0).toLocaleLowerCase('tr') + q.slice(1))); }
+    return;
   }
   const g0 = groupOf(r), topic = g0 && g0.s >= 1.6 && !(intentOf(r, ['i-price', 'i-location', 'i-hours']) && intentOf(r, ['i-price', 'i-location', 'i-hours']).s > g0.s);
   if (S.step === 'idle') {  // müşteri konu açana kadar yönlendirme yok
-    const n = nameFrom(t);
+    { const st = smallTalk(t); if (st && !(g0 && g0.s >= 3)) { await say(st); if (!(await steer())) await say(F_.idle[0]); return; } }
+    const n = sectorOpts(t) ? null : nameFrom(t);
+    if (!S.sector) { const so = sectorOpts(t); if (so && (S.await === 'sector' || topic)) { S.sector = cleanSector(t); save(); } }
     if (topic) {
-      S.g = g0.g; S.first = t.slice(0, 200); save();
+      S.await = ''; S.g = g0.g; S.first = t.slice(0, 200); save();
       if (isQ(t)) { if (G[S.g].yes) await say(G[S.g].yes); else await answerQuestion(t, r); }
       if (!S.name) { const nm = n && !(g0.s >= 2.2) ? n : null; if (nm) { S.name = nm; save(); } else { S.step = 'name'; save(); await say(F_.name_first); return; } }
       await say(pick(F_.ack)); return startGroup(S.g);
     }
+    if (UNDEC.test(norm(t)) && !isQ(t.replace(/\?/g, '')) || /(ne onerirsiniz|ne onerirsin|tavsiye|what do you recommend|any suggestions)/.test(norm(t))) {
+      if (S.sector) return offerOptions();
+      S.await = 'sector'; S.askedSector = true; save(); await say(F_.sector_ask_undecided); return;
+    }
+    if (S.await === 'sector' && !isQ(t) && !smallTalk(t) && (sectorOf(t) || toks(t).length <= 4) && !intentOf(r, ['i-greet', 'i-thanks', 'i-how'])) {
+      S.await = ''; if (!S.sector) S.sector = cleanSector(t); save();
+      await say(F_.sector_ack); return offerOptions();
+    }
     if (intentOf(r, ['i-how'])) { await say(F_.how); return; }
+    const st0 = smallTalk(t); if (st0) { await say(st0); if (!(await steer())) await say(F_.idle[0]); return; }
     if (isQ(t) && await answerQuestion(t, r)) return;
-    if (n && !isQ(t) && !intentOf(r, ['i-greet', 'i-thanks'])) { S.name = n; save(); await say(pick(F_.nice) + ' ' + F_.idle[0]); return; }
+    if (n && !isQ(t) && !sectorOpts(t) && !intentOf(r, ['i-greet', 'i-thanks'])) { S.name = n; save(); await say(pick(F_.nice) + ' ' + F_.idle[0]); return; }
     if (intentOf(r, ['i-greet'])) { await say(F_.greet_again); return; }
     if (intentOf(r, ['i-thanks'])) { await say(F_.thanks_idle); return; }
-    if (isQ(t)) { await say(C.fallback); links([{wa: 1, u: waUrl(C.wa_head + '\n' + t), t: C.wa}]); return; }
-    await say(pick(F_.idle)); return;
+    const st = smallTalk(t);
+    if (st || isQ(t)) { await say(st || pick(F_.offtopic)); if (!(await steer())) await say(F_.idle[0]); return; }
+    if (!(await steer())) await say(pick(F_.idle)); return;
   }
   if (S.step === 'name') {  // adı bir kez sorar, ısrar etmez
     const n = nameFrom(t);
@@ -304,7 +338,9 @@ async function local(t) {
     const ln = !S.name && S.qi === 0 && /^[A-ZÇĞİÖŞÜ][a-zçğıöşü]{1,19}[.!]?$/.test(t.trim()) && !groupOf(r) ? nameFrom(t) : null;
     if (ln) { S.name = ln; save(); await say(pick(F_.nice)); return say(curQ()); }
     S.resumed = false;
-    const skip = /^(bilmiyorum|emin degilim|gec|farketmez|fark etmez|sonra|bilmem|idk|not sure|skip|don ?t know|no idea|whatever)/.test(norm(t).trim());
+    const skip = /^(bilmiyorum|emin degilim|kararsiz|gec|farketmez|fark etmez|sonra|bilmem|ne bileyim|idk|not sure|undecided|skip|don ?t know|no idea|whatever)/.test(norm(t).trim()) || UNDEC.test(norm(t)) && toks(t).length <= 3;
+    const qo = G[S.g].qs[S.qi][2]; S.offered = S.offered || {};
+    if (skip && qo && !S.offered[S.g + S.qi] && t !== F_.not_sure) { S.offered[S.g + S.qi] = 1; save(); await say(F_.opts_offer); chips([...qo, F_.not_sure]); return; }
     S.ans.push([G[S.g].qs[S.qi][0], skip ? '-' : t.slice(0, 200)]); S.qi++; save();
     await say(skip ? F_.skip_ack : pick(F_.ack) + (!S.tip && G[S.g].tip ? ' ' + G[S.g].tip : ''));
     S.tip = true; save();
@@ -314,6 +350,7 @@ async function local(t) {
   // sohbet tamamlandıktan sonra: soruları cevapla, yeni konu açılırsa onu da konuş
   const g = groupOf(r);
   if (g && g.s >= 2.2 && g.g !== S.g) { if (isQ(t)) { if (G[g.g].yes) await say(G[g.g].yes); else await answerQuestion(t, r); } S.first = t.slice(0, 200); S.asked = []; await say(F_.new_topic); return startGroup(g.g); }
+  const st2 = smallTalk(t); if (st2) { await say(st2); return; }
   if (await answerQuestion(t, r)) return;
   if (isQ(t)) { await say(C.fallback); links([{wa: 1, u: waUrl(C.wa_head + '\n' + t), t: C.wa}]); return; }
   await say(pick(F_.smalltalk));
