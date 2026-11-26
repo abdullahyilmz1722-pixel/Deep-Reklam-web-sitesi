@@ -158,8 +158,9 @@ const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const MAP = {'ç':'c','ğ':'g','ı':'i','ö':'o','ş':'s','ü':'u','â':'a','î':'i','û':'u'};
 const norm = s => String(s).toLocaleLowerCase('tr').replace(/[çğıöşüâîû]/g, c => MAP[c]).replace(/[^a-z0-9\s]/g, ' ');
-const STOP = new Set(('ve ile bir bu su o da de mi mu mi midir ben biz siz sen icin gibi ama veya ya ne nasil hangi var yok mu ki cok daha en her olarak olan istiyorum isterim lazim bana bize size hakkinda bilgi almak yapiyor musunuz yapar misiniz musunuz misiniz neler nedir yapmak yaptirmak veriyor veriyorsunuz verir yapiyorsunuz sistem sistemi deep firma merhaba selam evet hayir tamam ' +
-  'the a an and or of to for in on with is are do does doing make you your we our i me my can could would what how which about please want need have has it this that system offer provide hi hello yes no ok').split(' '));
+const STOP = new Set(('ve ile bir bu su o da de mi mu mi midir ben biz siz sen icin gibi ama veya ya ne nasil hangi var yok mu ki cok daha en her olarak olan istiyorum isterim lazim bana bize size hakkinda bilgi almak yapiyor musunuz yapar misiniz musunuz misiniz neler nedir yapmak yaptirmak veriyor veriyorsunuz verir yapiyorsunuz sistem sistemi deep firma evet hayir tamam ' +
+  'the a an and or of to for in on with is are do does doing make you your we our i me my can could would what how which about please want need have has it this that system offer provide yes no ok').split(' '));
+const NOTNAME = new Set('merhaba selam selamlar sa hey hi hello tesekkurler sagol tamam evet hayir ok peki iyi yok var bilmiyorum'.split(' '));
 const toks = s => norm(s).replace(/deep\s+reklam/g, ' ').split(/\s+/).filter(t => t.length > 1 && !STOP.has(t));
 const hit = (q, e) => { if (q === e) return true; let i = 0; const n = Math.min(q.length, e.length); while (i < n && q[i] === e[i]) i++; return (i === n && n >= 4) || i >= 5; };
 let lastPick = '';
@@ -180,7 +181,7 @@ function nameFrom(t) {
   const m = t.match(/(?:ad[ıi]m|ismim|ben(?:im ad[ıi]m)?|my name is|i am|i'm|this is|call me)\s+([A-Za-zÇĞİÖŞÜçğıöşü]{2,20})/i);
   if (m) return cap(m[1]);
   const w = t.trim().replace(/[.!,]+$/, '').split(/\s+/);
-  if (w.length <= 3 && w.every(x => /^[A-Za-zÇĞİÖŞÜçğıöşü]{2,20}$/.test(x)) && !STOP.has(norm(w[0]).trim())) return cap(w[0]);
+  if (w.length <= 3 && w.every(x => /^[A-Za-zÇĞİÖŞÜçğıöşü]{2,20}$/.test(x)) && !STOP.has(norm(w[0]).trim()) && !NOTNAME.has(norm(w[0]).trim())) return cap(w[0]);
   return null;
 }
 
@@ -217,7 +218,7 @@ const waUrl = text => `https://wa.me/${D.wa}?text=${encodeURIComponent(text)}`;
 const curQ = () => G[S.g].qs[S.qi][1];
 
 function waMessage() {  // WhatsApp'ta gönderilecek eksiksiz hazır mesaj
-  const L = [fill(F_.wa_intro).replace(/,\s*,/, ','), ''];
+  const L = [S.name ? fill(F_.wa_intro) : F_.wa_intro_anon, ''];
   if (G[S.g]) L.push(`${F_.sum_need}: ${G[S.g].label}`);
   if (S.first) L.push(`${F_.wa_first} ${S.first}`);
   S.ans.filter(a => a[1] !== '-').forEach(a => L.push(`• ${a[0]}: ${a[1]}`));
@@ -226,7 +227,7 @@ function waMessage() {  // WhatsApp'ta gönderilecek eksiksiz hazır mesaj
   return L.join('\n');
 }
 function summaryText() {
-  const L = [`${F_.sum_name}: ${S.name || '-'}`, `${F_.sum_need}: ${G[S.g] ? G[S.g].label : '-'}`];
+  const L = [...(S.name ? [`${F_.sum_name}: ${S.name}`] : []), `${F_.sum_need}: ${G[S.g] ? G[S.g].label : '-'}`];
   S.ans.forEach(a => L.push(`${a[0]}: ${a[1]}`));
   return L;
 }
@@ -256,15 +257,36 @@ async function local(t) {
   const human = intentOf(r, ['i-human', 'i-phone']), gg = groupOf(r);
   if (human && (!gg || human.s > gg.s)) { await say(human.x.a); links([{wa: 1, u: waUrl(waMessage()), t: C.wa}]); return; }
   if (S.done && intentOf(r, ['i-thanks'])) { await say(F_.bye); return; }
+  if (S.step !== 'idle' && intentOf(r, ['i-how']) && toks(t).length <= 3) { await say(F_.how.split(/[.!] /)[0] + '!'); return; }
 
-  if (S.step === 'name') {
-    const g = groupOf(r), n = nameFrom(t);
-    if (n && !(g && g.s >= 2.2)) { S.name = n; save(); await say(pick(F_.nice)); if (S.g) return startGroup(S.g); S.step = 'need'; save(); await say(F_.need); chips(F_.need_chips); return; }
-    if (g && g.s >= 1.6) { S.g = g.g; S.first = t.slice(0, 200); save(); await say(F_.name_first); return; }
-    if (isQ(t) && await answerQuestion(t, r)) { await say(F_.name_retry); return; }
-    await say(F_.name_retry); return;
+  if (/\b(ne is yap|neler yap|ne yapiyorsunuz|hizmetleriniz|hizmetleriniz neler|neler sunuyorsunuz|what do you do|your services|what services|what can you do)/.test(norm(t))) {
+    await say(F_.services); if (S.step === 'q' && !S.resumed) { S.resumed = true; save(); const q = curQ(); await say(F_.resume.replace('{q}', q.charAt(0).toLocaleLowerCase('tr') + q.slice(1))); } return;
   }
-  if (S.step === 'need') {
+  const g0 = groupOf(r), topic = g0 && g0.s >= 1.6 && !(intentOf(r, ['i-price', 'i-location', 'i-hours']) && intentOf(r, ['i-price', 'i-location', 'i-hours']).s > g0.s);
+  if (S.step === 'idle') {  // müşteri konu açana kadar yönlendirme yok
+    const n = nameFrom(t);
+    if (topic) {
+      S.g = g0.g; S.first = t.slice(0, 200); save();
+      if (isQ(t)) await answerQuestion(t, r);
+      if (!S.name) { const nm = n && !(g0.s >= 2.2) ? n : null; if (nm) { S.name = nm; save(); } else { S.step = 'name'; save(); await say(F_.name_first); return; } }
+      await say(pick(F_.ack)); return startGroup(S.g);
+    }
+    if (intentOf(r, ['i-how'])) { await say(F_.how); return; }
+    if (isQ(t) && await answerQuestion(t, r)) return;
+    if (n && !isQ(t) && !intentOf(r, ['i-greet', 'i-thanks'])) { S.name = n; save(); await say(pick(F_.nice) + ' ' + F_.idle[0]); return; }
+    if (intentOf(r, ['i-greet'])) { await say(F_.greet_again); return; }
+    if (intentOf(r, ['i-thanks'])) { await say(F_.thanks_idle); return; }
+    if (isQ(t)) { await say(C.fallback); links([{wa: 1, u: waUrl(C.wa_head + '\n' + t), t: C.wa}]); return; }
+    await say(pick(F_.idle)); return;
+  }
+  if (S.step === 'name') {  // adı bir kez sorar, ısrar etmez
+    const n = nameFrom(t);
+    if (n && !isQ(t)) { S.name = n; save(); await say(pick(F_.nice)); return startGroup(S.g); }
+    if (isQ(t) && !(await answerQuestion(t, r))) await say(F_.q_unknown);
+    return startGroup(S.g);
+  }
+  if (S.step === 'need') { S.step = 'idle'; save(); return local(t); }
+  if (S.step === 'need_old') {
     const g = groupOf(r);
     const it = intentOf(r, ['i-price', 'i-location', 'i-hours']);
     if (g && g.s >= 1.6 && !(it && it.s > g.s)) { CH.innerHTML = ''; S.first = t.slice(0, 200); save(); await say(pick(F_.ack)); return startGroup(g.g); }
@@ -273,9 +295,12 @@ async function local(t) {
     S.ans = []; S.g = 'other'; S.step = 'q'; S.qi = 0; S.ans.push([G.other.qs[0][0], t.slice(0, 200)]); save(); return finish();
   }
   if (S.step === 'q') {
-    const resume = async () => { const q = curQ(); await say(F_.resume.replace('{q}', q.charAt(0).toLocaleLowerCase('tr') + q.slice(1))); };
+    const resume = async () => { if (S.resumed) return; S.resumed = true; save(); const q = curQ(); await say(F_.resume.replace('{q}', q.charAt(0).toLocaleLowerCase('tr') + q.slice(1))); };
     if (isQ(t)) { if (!(await answerQuestion(t, r))) await say(F_.q_unknown); return resume(); }
     if (intentOf(r, ['i-thanks', 'i-greet']) && toks(t).length <= 3) { await say(F_.thanks_mid); return resume(); }
+    const ln = !S.name && S.qi === 0 && /^[A-ZÇĞİÖŞÜ][a-zçğıöşü]{1,19}[.!]?$/.test(t.trim()) && !groupOf(r) ? nameFrom(t) : null;
+    if (ln) { S.name = ln; save(); await say(pick(F_.nice)); return say(curQ()); }
+    S.resumed = false;
     const skip = /^(bilmiyorum|emin degilim|gec|farketmez|fark etmez|sonra|bilmem|idk|not sure|skip|don ?t know|no idea|whatever)/.test(norm(t).trim());
     S.ans.push([G[S.g].qs[S.qi][0], skip ? '-' : t.slice(0, 200)]); S.qi++; save();
     await say(skip ? F_.skip_ack : pick(F_.ack) + (!S.tip && G[S.g].tip ? ' ' + G[S.g].tip : ''));
@@ -317,8 +342,7 @@ async function toggle(v) {
   if (!open) return fab.focus();
   setTimeout(() => IN.focus(), 50); loadKB();
   if (!M.children.length) S.log.forEach(draw);
-  if (S.step === 'start') { S.step = 'name'; save(); await say(F_.greet); }
-  else if (S.step === 'need' && !CH.children.length) chips(F_.need_chips);
+  if (S.step === 'start') { S.step = 'idle'; save(); await say(F_.greet); }
 }
 fab.addEventListener('click', () => toggle());
 $('.cb-x', box).addEventListener('click', () => toggle(false));

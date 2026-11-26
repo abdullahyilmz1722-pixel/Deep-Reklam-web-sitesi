@@ -42,6 +42,7 @@ def intents(lang):
     ph = SITE["phone"]
     if lang == "tr":
         return [
+         ("how", "nasilsin nasilsiniz naber nasil gidiyor iyi misin", "", None),
          ("greet", "merhaba selam selamlar iyi gunler gunaydin iyi aksamlar hey sa", "Merhaba! Ben DEEP Asistan. AI otomasyon, tabela, tasarım, web sitesi, yazılım veya reklam hakkında ne öğrenmek istersiniz?", None),
          ("thanks", "tesekkurler tesekkur ederim sagol sag ol eyvallah", "Rica ederim! Başka bir sorunuz olursa buradayım. Projenizi konuşmak isterseniz WhatsApp'tan da yazabilirsiniz.", None),
          ("price", "fiyat fiyati ucret ucreti kac para ne kadar maliyet butce fiyatlar tutar paket", "Fiyatları projeye özel hazırlıyoruz, çünkü ölçü, kapsam, malzeme ve entegrasyon her işte farklı. İhtiyacınızı kısaca WhatsApp'tan ya da teklif formundan iletirseniz size net bir teklif sunarız.", "contact"),
@@ -54,6 +55,7 @@ def intents(lang):
          ("time", "ne kadar surer sure teslim kac gun zaman", "Süre işin kapsamına göre değişiyor. İhtiyacınızı öğrendiğimizde size teklifle birlikte net bir teslim süresi bildiriyoruz.", "contact"),
         ]
     return [
+     ("how", "how are you how is it going hows going", "", None),
      ("greet", "hello hi hey good morning good afternoon good evening greetings", "Hi! I'm DEEP Assistant. What would you like to know about AI automation, signage, design, websites, software or advertising?", None),
      ("thanks", "thanks thank you cheers", "You're welcome! I'm here if you have more questions. You can also message us on WhatsApp to discuss your project.", None),
      ("price", "price prices pricing cost costs how much budget fee quote package", "We prepare pricing per project, since size, scope, materials and integrations differ every time. Send us a short description on WhatsApp or through the quote form and we'll send a clear quote.", "contact"),
@@ -129,9 +131,12 @@ def knowledge_text():
 # Her grup: label, intro (ilk cümle), qs [(özet etiketi, soru)], tip (ilk cevaptan sonra verilen kısa bilgi)
 FLOW = {
  "tr": {
-  "greet": "Merhaba, hoş geldiniz! Ben DEEP Asistan, DEEP REKLAM'ın dijital asistanıyım. Önce tanışalım mı, adınız nedir?",
+  "greet": "Merhaba, hoş geldiniz! Ben DEEP Asistan, DEEP REKLAM'ın dijital asistanıyım. Size nasıl yardımcı olabilirim?",
+  "idle": ["Size nasıl yardımcı olabilirim? Aklınızdaki konuyu yazmanız yeterli.", "Anladım. Yardımcı olabileceğim bir konu olursa buradayım."],
+  "how": "Teşekkür ederim, iyiyim! Umarım siz de iyisinizdir. Size nasıl yardımcı olabilirim?",
+  "greet_again": "Merhaba! Size nasıl yardımcı olabilirim?",
   "name_retry": "Size nasıl hitap edeyim? Adınızı yazmanız yeterli.",
-  "name_first": "Memnuniyetle yardımcı olurum! Önce tanışalım, adınız nedir?",
+  "name_first": "Memnuniyetle yardımcı olurum. Bu arada size nasıl hitap edeyim?",
   "nice": ["Memnun oldum {n}!", "Tanıştığımıza çok sevindim {n}.", "Hoş geldiniz {n}!"],
   "need": "Bugün size nasıl yardımcı olabilirim? Aklınızdaki projeyi ya da ihtiyacı kısaca anlatır mısınız?",
   "need_chips": ["Yapay zekâ / WhatsApp asistanı", "Tabela", "Web sitesi", "Logo ve tasarım", "Reklam ve sosyal medya", "Matbaa"],
@@ -139,8 +144,8 @@ FLOW = {
   "ack": ["Anladım.", "Harika.", "Çok güzel.", "Tamam, not ettim.", "Süper.", "Anladım {n}.", "Teşekkürler {n}.", "Peki, anlaşıldı."],
   "skip_ack": "Hiç sorun değil, bunu ekibimiz sizinle birlikte netleştirir.",
   "q_unknown": "Güzel soru. Bunu ekibimiz size en doğru şekilde anlatır, sorunuzu WhatsApp mesajına da ekleyeceğim.",
-  "thanks_mid": "Rica ederim!", "wa_first": "Talebim:",
-  "resume": "Bu arada, {q}",
+  "thanks_mid": "Rica ederim!", "thanks_idle": "Rica ederim! Başka bir konuda yardımcı olabileceğim bir şey olursa buradayım.", "wa_first": "Talebim:",
+  "resume": "Hazır olduğunuzda kaldığımız yerden devam edebiliriz: {q}",
   "summary": "Çok teşekkürler {n}, şimdi resmi daha iyi görüyorum. Özetle şöyle anladım:",
   "handoff": "Ekibimiz bu bilgilerle size özel bir öneri ve teklif hazırlayabilir. Aşağıdaki butona basınca bu özet WhatsApp'ta hazır gelir, siz gönderince ekibimiz size oradan döner. Başka merak ettiğiniz bir şey olursa sormaya devam edebilirsiniz, buradayım.",
   "wa_btn": "Özeti WhatsApp'tan gönder",
@@ -150,6 +155,8 @@ FLOW = {
   "new_topic": "Tabii, bunu da konuşalım.",
   "sum_need": "İhtiyaç", "sum_name": "Ad",
   "wa_intro": "Merhaba DEEP REKLAM, ben {n}. Web sitenizdeki asistanla görüştüm, bilgilerim aşağıda:",
+  "wa_intro_anon": "Merhaba DEEP REKLAM, web sitenizdeki asistanla görüştüm, bilgilerim aşağıda:",
+  "services": "DEEP REKLAM olarak en çok yapay zekâ otomasyonu üzerine çalışıyoruz: WhatsApp ve Instagram'a cevap veren asistanlar, AI satış temsilcisi, randevu otomasyonu, sesli asistan ve iş akışı otomasyonu. Bunun yanında tabela ve açık hava reklamı, grafik tasarım, web sitesi, özel yazılım, dijital reklam, SEO, sosyal medya yönetimi ve matbaa hizmetleri de veriyoruz. Merak ettiğiniz bir konu varsa anlatabilirim.",
   "wa_qs": "Sohbette sorduğum konular:", "wa_page": "Görüştüğüm sayfa:",
   "wa_end": "Benim için öneri ve teklif hazırlayabilir misiniz? Teşekkürler.",
   "groups": {
@@ -185,9 +192,12 @@ FLOW = {
   },
  },
  "en": {
-  "greet": "Hi, welcome! I'm DEEP Assistant, DEEP REKLAM's digital assistant. Shall we start with introductions? What's your name?",
+  "greet": "Hi, welcome! I'm DEEP Assistant, DEEP REKLAM's digital assistant. How can I help you?",
+  "idle": ["How can I help you? Just tell me what's on your mind.", "Got it. I'm here if there's anything I can help with."],
+  "how": "I'm doing well, thank you! I hope you are too. How can I help you?",
+  "greet_again": "Hello! How can I help you?",
   "name_retry": "What should I call you? Just type your name.",
-  "name_first": "Happy to help! First, may I ask your name?",
+  "name_first": "Happy to help. By the way, what should I call you?",
   "nice": ["Nice to meet you, {n}!", "Great to meet you, {n}.", "Welcome, {n}!"],
   "need": "How can I help you today? Tell me briefly about the project or what you need.",
   "need_chips": ["AI / WhatsApp assistant", "Signage", "Website", "Logo and design", "Ads and social media", "Print"],
@@ -195,8 +205,8 @@ FLOW = {
   "ack": ["Got it.", "Great.", "Lovely.", "Okay, noted.", "Perfect.", "Got it, {n}.", "Thanks, {n}.", "Understood."],
   "skip_ack": "No problem at all, our team will work that out with you.",
   "q_unknown": "Good question. Our team will explain that properly, and I'll add your question to the WhatsApp message.",
-  "thanks_mid": "You're welcome!", "wa_first": "My request:",
-  "resume": "By the way, {q}",
+  "thanks_mid": "You're welcome!", "thanks_idle": "You're welcome! If there's anything else I can help with, I'm here.", "wa_first": "My request:",
+  "resume": "Whenever you're ready, we can pick up where we left off: {q}",
   "summary": "Thanks so much, {n}, I have a much clearer picture now. Here's what I understood:",
   "handoff": "Our team can prepare a tailored proposal and quote from this. Press the button below and this summary will open ready in WhatsApp; once you send it, our team will reply there. If anything else is on your mind, keep asking, I'm here.",
   "wa_btn": "Send summary on WhatsApp",
@@ -206,6 +216,8 @@ FLOW = {
   "new_topic": "Sure, let's talk about that too.",
   "sum_need": "Need", "sum_name": "Name",
   "wa_intro": "Hello DEEP REKLAM, I'm {n}. I chatted with the assistant on your website; my details are below:",
+  "wa_intro_anon": "Hello DEEP REKLAM, I chatted with the assistant on your website; my details are below:",
+  "services": "At DEEP REKLAM our main focus is AI automation: assistants that answer WhatsApp and Instagram, AI sales agents, booking automation, voice assistants and workflow automation. We also do signage and outdoor advertising, graphic design, websites, custom software, digital ads, SEO, social media management and print. Happy to tell you more about anything you're curious about.",
   "wa_qs": "Topics I asked about:", "wa_page": "Page I was on:",
   "wa_end": "Could you prepare a proposal and quote for me? Thank you.",
   "groups": {

@@ -62,7 +62,8 @@ sürümünde yoktur; buradaki karşılıkları statik sayfalar ve WhatsApp taban
 Sağ alttaki asistan iki modda çalışır:
 
 1. **Yerel mod (varsayılan, ücretsiz):** Tarayıcıda çalışır, `src/chatbot.py` ve `src/content.py`'den üretilen
-   bilgi tabanıyla sohbet eder: adı öğrenir, ihtiyacı sorar, 2-3 kısa soruyla bilgi toplar, sorulara cevap verir
+   bilgi tabanıyla sohbet eder: ziyaretçi konu açana kadar yalnızca nasıl yardımcı olabileceğini sorar; konu açılınca
+   adı bir kez sorar (ısrar etmez), 2-3 kısa soruyla bilgi toplar, sorulara cevap verir
    ve sonunda her şeyi içeren hazır bir WhatsApp mesajı sunar. Hiçbir veri sunucuya gönderilmez.
    Soru akışları: `src/chatbot.py` içindeki `FLOW`.
    Yeni soru-cevap eklemek için `src/chatbot.py` içindeki `intents` listesine satır ekleyin.
