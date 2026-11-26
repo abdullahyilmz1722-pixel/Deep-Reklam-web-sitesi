@@ -62,7 +62,9 @@ sürümünde yoktur; buradaki karşılıkları statik sayfalar ve WhatsApp taban
 Sağ alttaki asistan iki modda çalışır:
 
 1. **Yerel mod (varsayılan, ücretsiz):** Tarayıcıda çalışır, `src/chatbot.py` ve `src/content.py`'den üretilen
-   bilgi tabanıyla yanıt verir, ilgili sayfaya ve WhatsApp'a yönlendirir. Hiçbir veri gönderilmez.
+   bilgi tabanıyla sohbet eder: adı öğrenir, ihtiyacı sorar, 2-3 kısa soruyla bilgi toplar, sorulara cevap verir
+   ve sonunda her şeyi içeren hazır bir WhatsApp mesajı sunar. Hiçbir veri sunucuya gönderilmez.
+   Soru akışları: `src/chatbot.py` içindeki `FLOW`.
    Yeni soru-cevap eklemek için `src/chatbot.py` içindeki `intents` listesine satır ekleyin.
 2. **Yapay zekâ modu:** `worker/` klasöründeki Cloudflare Worker, soruları Claude modeline gönderir.
    ```bash

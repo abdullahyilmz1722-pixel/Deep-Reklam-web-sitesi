@@ -10,7 +10,7 @@ OUT = os.path.join(os.path.dirname(ROOT), "_site")
 SITE_URL = os.environ.get("SITE_URL", "https://abdullahyilmz1722-pixel.github.io/Deep-Reklam-web-sitesi").rstrip("/")
 FORM_ENDPOINT = os.environ.get("FORM_ENDPOINT", "")
 CHAT_ENDPOINT = os.environ.get("CHAT_ENDPOINT", "")
-VER = "2"
+VER = "3"
 LANGS = ["tr", "en"]
 e = lambda s: html.escape(str(s), quote=True)
 
@@ -18,9 +18,9 @@ for p in POSTS:
     P[p["key"]] = dict(p, kind="post")
 _CHAT_PRIV = {
  "tr": ("Sohbet asistanı", ["Sitedeki sohbet asistanı yazdıklarınızı yapay zekâ yanıtı üretmek için sunucumuz üzerinden yapay zekâ hizmet sağlayıcısına (Anthropic) iletir. Sohbetler tarafımızca kaydedilmez. Lütfen asistana kişisel veya hassas bilgi yazmayın."] if CHAT_ENDPOINT else
-        ["Sitedeki sohbet asistanı tamamen tarayıcınızda çalışır; yazdıklarınız bize veya üçüncü kişilere gönderilmez ve kaydedilmez. Ekibe ulaşmak için WhatsApp butonunu kullandığınızda mesajınız WhatsApp üzerinden iletilir."]),
+        ["Sitedeki sohbet asistanı tamamen tarayıcınızda çalışır; yazdıklarınız (adınız dahil) bize veya üçüncü kişilere gönderilmez, yalnızca sekme açık kaldığı sürece tarayıcınızda tutulur. Ekibe ulaşmak için WhatsApp butonunu kullandığınızda mesajınız WhatsApp üzerinden iletilir."]),
  "en": ("Chat assistant", ["The chat assistant on this site sends what you type through our server to an AI service provider (Anthropic) to generate replies. We don't store conversations. Please don't share personal or sensitive details with the assistant."] if CHAT_ENDPOINT else
-        ["The chat assistant on this site runs entirely in your browser; what you type is not sent to us or any third party and is not stored. When you use the WhatsApp button to reach our team, your message is sent via WhatsApp."])}
+        ["The chat assistant on this site runs entirely in your browser; what you type (including your name) is not sent to us or any third party and is kept in your browser only while the tab stays open. When you use the WhatsApp button to reach our team, your message is sent via WhatsApp."])}
 for _l in ("tr", "en"):
     P["privacy"][_l]["body"].insert(3, _CHAT_PRIV[_l])
 NAVDEF = {"ai": ("AI Otomasyon", "AI Automation"), "about": ("Hakkımızda", "About"), "projects": ("Projeler", "Projects"),

@@ -146,29 +146,50 @@ $$('form.lead').forEach(f => {
 });
 }
 
-/* ---------- DEEP Asistan: sohbet botu
-   Varsayılan: tarayıcıda çalışan, sitedeki bilgi tabanından yanıt veren asistan (veri göndermez).
-   CHAT_ENDPOINT tanımlıysa: mesajlar sunucu tarafı yapay zekâya gider; hata olursa yerel asistana döner. */
+/* ---------- DEEP Asistan: sohbet eden asistan
+   Yerel mod: tarayıcıda çalışır; tanışır, ihtiyacı sorar, kısa sorularla bilgi toplar, sorulara cevap verir,
+   sonunda özeti WhatsApp'a hazır mesaj olarak sunar. Hiçbir veri sunucuya gönderilmez (sohbet sadece bu sekmede tutulur).
+   CHAT_ENDPOINT tanımlıysa: sohbet sunucu tarafı yapay zekâyla yürür; hata olursa yerel moda döner. */
 {
-const D = window.DR || {}, C = D.chat; if (!C) throw 0;
-const $ = (s, r = document) => r.querySelector(s), ROOT = D.root || '', TR = D.lang === 'tr';
+const D = window.DR || {}, C = D.chat, fab = document.querySelector('.cb-fab');
+if (C && fab) {
+const $ = (s, r = document) => r.querySelector(s), ROOT = D.root || '', TR = D.lang === 'tr', F_ = C.flow, G = F_.groups;
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const MAP = {'ç':'c','ğ':'g','ı':'i','ö':'o','ş':'s','ü':'u','â':'a','î':'i','û':'u'};
 const norm = s => String(s).toLocaleLowerCase('tr').replace(/[çğıöşüâîû]/g, c => MAP[c]).replace(/[^a-z0-9\s]/g, ' ');
-const STOP = new Set(('ve ile bir bu su o da de mi mu mi midir ben biz siz sen icin gibi ama veya ya ne nasil hangi var yok mu ki cok daha en her olarak olan istiyorum isterim lazim bana bize size hakkinda bilgi almak yapiyor musunuz yapar misiniz musunuz misiniz neler nedir yapmak yaptirmak veriyor veriyorsunuz verir yapiyorsunuz sistem sistemi deep firma ' +
-  'the a an and or of to for in on with is are do does doing make you your we our i me my can could would what how which about please want need have has it this that system offer provide').split(' '));
+const STOP = new Set(('ve ile bir bu su o da de mi mu mi midir ben biz siz sen icin gibi ama veya ya ne nasil hangi var yok mu ki cok daha en her olarak olan istiyorum isterim lazim bana bize size hakkinda bilgi almak yapiyor musunuz yapar misiniz musunuz misiniz neler nedir yapmak yaptirmak veriyor veriyorsunuz verir yapiyorsunuz sistem sistemi deep firma merhaba selam evet hayir tamam ' +
+  'the a an and or of to for in on with is are do does doing make you your we our i me my can could would what how which about please want need have has it this that system offer provide hi hello yes no ok').split(' '));
 const toks = s => norm(s).replace(/deep\s+reklam/g, ' ').split(/\s+/).filter(t => t.length > 1 && !STOP.has(t));
-const hit = (q, e) => { if (q === e) return true; let i = 0; const n = Math.min(q.length, e.length); while (i < n && q[i] === e[i]) i++; return (i === n && n >= 3) || i >= 5; };
-let KB = null, hist = [], open = false;
+const hit = (q, e) => { if (q === e) return true; let i = 0; const n = Math.min(q.length, e.length); while (i < n && q[i] === e[i]) i++; return (i === n && n >= 4) || i >= 5; };
+let lastPick = '';
+const pick = a => { let x, k = 0; do { x = a[Math.floor(Math.random() * a.length)]; } while (x === lastPick && k++ < 5); lastPick = x; return x; };
+const short = (s, n = 2) => (s.match(/[^.!?]+[.!?]+/g) || [s]).slice(0, n).join(' ').trim();
+let KB = null;
 const loadKB = () => KB ? Promise.resolve(KB) : fetch(ROOT + 'assets/kb-' + D.lang + '.json').then(r => r.json()).then(j => KB = j.map(x => ({...x, tt: toks(x.t), kt: toks(x.k)}))).catch(() => KB = []);
 function rank(q) {
   const qt = toks(q); if (!qt.length || !KB) return [];
   return KB.map(x => { let s = 0; for (const t of qt) s += x.tt.some(e => hit(t, e)) ? 1.5 : x.kt.some(e => hit(t, e)) ? 1 : 0; return {x, s: s * x.w + (s > 0 && x.id.startsWith('p-') ? 0.6 : 0)}; })
     .filter(r => r.s >= 1).sort((a, b) => b.s - a.s);
 }
-const waUrl = q => `https://wa.me/${D.wa}?text=${encodeURIComponent(C.wa_head + (q ? '\n' + q : ''))}`;
+const isQ = t => /\?\s*$/.test(t) || /^(ne|neden|nasil|kac|hangi|nerede|nereden|kim|niye|what|how|why|where|when|which|who|do|does|can|could|is|are|will)\b/.test(norm(t).trim()) || /\b(mi|mu|misiniz|musunuz|miyim|muyum|miyiz|mudur|midir)\b/.test(norm(t));
+const groupOf = r => { for (const o of r) { const m = o.x.id.match(/^[pg]-(.+)$/); if (m && C.group_of[m[1]]) return {g: C.group_of[m[1]], s: o.s, key: m[1]}; } return null; };
+const intentOf = (r, ids) => r.find(o => ids.includes(o.x.id) && o.s >= 1.6);
+const cap = w => w.charAt(0).toLocaleUpperCase('tr') + w.slice(1).toLocaleLowerCase('tr');
+function nameFrom(t) {
+  const m = t.match(/(?:ad[ıi]m|ismim|ben(?:im ad[ıi]m)?|my name is|i am|i'm|this is|call me)\s+([A-Za-zÇĞİÖŞÜçğıöşü]{2,20})/i);
+  if (m) return cap(m[1]);
+  const w = t.trim().replace(/[.!,]+$/, '').split(/\s+/);
+  if (w.length <= 3 && w.every(x => /^[A-Za-zÇĞİÖŞÜçğıöşü]{2,20}$/.test(x)) && !STOP.has(norm(w[0]).trim())) return cap(w[0]);
+  return null;
+}
 
-const fab = $('.cb-fab'); if (!fab) throw 0;
+/* durum: sekme açık kaldıkça korunur, sunucuya gitmez */
+let S = {step: 'start', name: '', g: '', qi: 0, ans: [], unclear: 0, tip: false, log: [], hist: [], done: false, asked: [], first: ''};
+try { const s = sessionStorage.getItem('dr-chat-' + D.lang); if (s) S = {...S, ...JSON.parse(s)}; } catch (_) {}
+const save = () => { try { sessionStorage.setItem('dr-chat-' + D.lang, JSON.stringify({...S, log: S.log.slice(-60), hist: S.hist.slice(-20)})); } catch (_) {} };
+const fill = s => s.replace(/\{n\}/g, S.name || '').replace(/\s+([.!?,])/g, '$1').replace(/\s{2,}/g, ' ').trim();
+
 const box = document.createElement('div');
 box.className = 'cb'; box.hidden = true; box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', C.title);
 box.innerHTML = `<div class="cb-h"><span class="cb-av">AI</span><span class="cb-ht"><b>${esc(C.title)}</b><small>${esc(C.endpoint ? C.sub_ai : C.sub_local)}</small></span><button type="button" class="cb-x" aria-label="${esc(C.close)}">×</button></div>
@@ -176,51 +197,132 @@ box.innerHTML = `<div class="cb-h"><span class="cb-av">AI</span><span class="cb-
 <form class="cb-f"><label class="sr" for="cb-in">${esc(C.ph)}</label><input id="cb-in" autocomplete="off" maxlength="500" placeholder="${esc(C.ph)}"><button type="submit" aria-label="${esc(C.send)}"><svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M4 12l16-8-6 16-2-7z"/></svg></button></form>
 <p class="cb-n">${esc(C.note)}</p>`;
 document.body.appendChild(box);
-const M = $('.cb-m', box), CH = $('.cb-c', box), F = $('.cb-f', box), IN = $('#cb-in', box);
+const M = $('.cb-m', box), CH = $('.cb-c', box), FM = $('.cb-f', box), IN = $('#cb-in', box);
 
-function bubble(who, text) { const d = document.createElement('div'); d.className = 'cb-b ' + who; d.textContent = text; M.appendChild(d); M.scrollTop = M.scrollHeight; return d; }
-function actions(links, q) {
-  const d = document.createElement('div'); d.className = 'cb-a';
-  d.innerHTML = links.map(l => `<a href="${esc(ROOT + l.u)}">${esc(l.label)}</a>`).join('') +
-    `<a class="wa" href="${esc(waUrl(q))}" target="_blank" rel="noopener">${esc(C.wa)}</a>`;
-  M.appendChild(d); M.scrollTop = M.scrollHeight;
+function draw(item) {
+  if (item.k === 'b') { const d = document.createElement('div'); d.className = 'cb-b ' + item.w; d.textContent = item.t; M.appendChild(d); }
+  else { const d = document.createElement('div'); d.className = 'cb-a'; d.innerHTML = item.l.map(l => `<a ${l.wa ? 'class="wa" target="_blank" rel="noopener"' : ''} href="${esc(l.wa ? l.u : ROOT + l.u)}">${esc(l.t)}</a>`).join(''); M.appendChild(d); }
+  M.scrollTop = M.scrollHeight;
 }
-function chips() { CH.innerHTML = C.chips.map(c => `<button type="button">${esc(c)}</button>`).join(''); CH.querySelectorAll('button').forEach(b => b.onclick = () => ask(b.textContent)); }
+const push = item => { S.log.push(item); draw(item); save(); };
+const sleep = ms => new Promise(r => setTimeout(r, RM ? 80 : ms));
+async function say(t, typing = true) {
+  t = fill(t); if (!t) return;
+  if (typing) { const d = document.createElement('div'); d.className = 'cb-b a t'; d.innerHTML = '<i></i><i></i><i></i>'; M.appendChild(d); M.scrollTop = M.scrollHeight; await sleep(Math.min(1700, 450 + t.length * 14)); d.remove(); }
+  push({k: 'b', w: 'a', t}); S.hist.push({role: 'assistant', content: t});
+}
+const links = l => push({k: 'l', l});
+const chips = arr => { CH.innerHTML = (arr || []).map(c => `<button type="button">${esc(c)}</button>`).join(''); CH.querySelectorAll('button').forEach(b => b.onclick = () => send(b.textContent)); };
+const waUrl = text => `https://wa.me/${D.wa}?text=${encodeURIComponent(text)}`;
+const curQ = () => G[S.g].qs[S.qi][1];
 
-function localAnswer(q) {
-  if (/(\+?\d[\d\s()-]{8,}\d)/.test(q)) return {text: C.phone_note, links: []};
-  const r = rank(q);
-  if (!r.length) return {text: C.fallback, links: [{u: TR ? 'iletisim.html' : 'en/contact.html', label: C.form}]};
-  const best = r[0].x, links = [], ttl = u => (KB.find(x => x.u === u && x.id.startsWith('p-')) || {}).t;
-  if (best.u) links.push({u: best.u, label: (ttl(best.u) || C.go) + ' →'});
-  const seen = new Set([best.u]);
-  for (const o of r.slice(1)) { if (links.length >= 3) break; const t = ttl(o.x.u); if (o.x.u && t && !seen.has(o.x.u) && o.s >= r[0].s * 0.6) { seen.add(o.x.u); links.push({u: o.x.u, label: t}); } }
-  return {text: best.a, links};
+function waMessage() {  // WhatsApp'ta gönderilecek eksiksiz hazır mesaj
+  const L = [fill(F_.wa_intro).replace(/,\s*,/, ','), ''];
+  if (G[S.g]) L.push(`${F_.sum_need}: ${G[S.g].label}`);
+  if (S.first) L.push(`${F_.wa_first} ${S.first}`);
+  S.ans.filter(a => a[1] !== '-').forEach(a => L.push(`• ${a[0]}: ${a[1]}`));
+  if (S.asked.length) { L.push('', F_.wa_qs); S.asked.slice(-5).forEach(q => L.push('• ' + q)); }
+  L.push('', `${F_.wa_page} ${document.title.split('|')[0].trim()}`, '', F_.wa_end);
+  return L.join('\n');
 }
-async function ask(q) {
-  q = q.trim().slice(0, 500); if (!q) return;
-  CH.innerHTML = ''; bubble('u', q); hist.push({role: 'user', content: q});
-  const ty = bubble('a t', ''); ty.innerHTML = '<i></i><i></i><i></i>';
+function summaryText() {
+  const L = [`${F_.sum_name}: ${S.name || '-'}`, `${F_.sum_need}: ${G[S.g] ? G[S.g].label : '-'}`];
+  S.ans.forEach(a => L.push(`${a[0]}: ${a[1]}`));
+  return L;
+}
+async function startGroup(g) {
+  S.g = g; S.qi = 0; S.ans = []; S.tip = false; S.step = 'q'; save();
+  await say(G[g].intro); await say(curQ());
+}
+async function finish() {
+  S.step = 'done'; S.done = true; save();
+  const lines = summaryText();
+  await say(F_.summary + '\n• ' + lines.join('\n• '));
+  await say(F_.handoff);
+  links([{wa: 1, u: waUrl(waMessage()), t: F_.wa_btn}]);
+}
+async function answerQuestion(t, r) {  // sitedeki bilgiyle kısa cevap; true dönerse cevaplandı
+  const top = r[0]; if (!top || top.s < 1.6) return false;
+  await say(short(top.x.a, 3));
+  if (S.step === 'done' && top.x.u && top.x.id.startsWith('p-')) links([{u: top.x.u, t: (top.x.t || C.go) + ' →'}]);
+  return true;
+}
+
+async function local(t) {
   await loadKB();
-  let ans = null;
-  if (C.endpoint) {
-    try {
-      const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 20000);
-      const r = await fetch(C.endpoint, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({lang: D.lang, page: location.pathname, messages: hist.slice(-10)}), signal: ctl.signal});
-      clearTimeout(tm);
-      if (r.ok) { const j = await r.json(); if (j && typeof j.reply === 'string' && j.reply.trim()) { const loc = localAnswer(q); ans = {text: j.reply.trim().slice(0, 2000), links: loc.text === C.fallback ? [] : loc.links.slice(0, 2)}; } }
-    } catch (_) {}
-  } else await new Promise(r => setTimeout(r, 450));
-  if (!ans) ans = localAnswer(q);
-  ty.remove(); bubble('a', ans.text); actions(ans.links, q); hist.push({role: 'assistant', content: ans.text});
-  if (hist.length > 20) hist = hist.slice(-20);
+  const r = rank(t);
+  if (isQ(t)) { S.asked.push(t.slice(0, 160)); save(); }
+  if (/(\+?\d[\d\s()-]{8,}\d)/.test(t)) { await say(C.phone_note); links([{wa: 1, u: waUrl(C.wa_head + '\n' + t), t: C.wa}]); if (S.step === 'q') await say(fill(F_.resume.replace('{q}', curQ().charAt(0).toLocaleLowerCase('tr') + curQ().slice(1)))); return; }
+  const human = intentOf(r, ['i-human', 'i-phone']), gg = groupOf(r);
+  if (human && (!gg || human.s > gg.s)) { await say(human.x.a); links([{wa: 1, u: waUrl(waMessage()), t: C.wa}]); return; }
+  if (S.done && intentOf(r, ['i-thanks'])) { await say(F_.bye); return; }
+
+  if (S.step === 'name') {
+    const g = groupOf(r), n = nameFrom(t);
+    if (n && !(g && g.s >= 2.2)) { S.name = n; save(); await say(pick(F_.nice)); if (S.g) return startGroup(S.g); S.step = 'need'; save(); await say(F_.need); chips(F_.need_chips); return; }
+    if (g && g.s >= 1.6) { S.g = g.g; S.first = t.slice(0, 200); save(); await say(F_.name_first); return; }
+    if (isQ(t) && await answerQuestion(t, r)) { await say(F_.name_retry); return; }
+    await say(F_.name_retry); return;
+  }
+  if (S.step === 'need') {
+    const g = groupOf(r);
+    const it = intentOf(r, ['i-price', 'i-location', 'i-hours']);
+    if (g && g.s >= 1.6 && !(it && it.s > g.s)) { CH.innerHTML = ''; S.first = t.slice(0, 200); save(); await say(pick(F_.ack)); return startGroup(g.g); }
+    if (isQ(t) && await answerQuestion(t, r)) { await say(F_.need); chips(F_.need_chips); return; }
+    if (S.unclear++ < 1) { save(); await say(F_.need_unclear); chips(F_.need_chips); return; }
+    S.ans = []; S.g = 'other'; S.step = 'q'; S.qi = 0; S.ans.push([G.other.qs[0][0], t.slice(0, 200)]); save(); return finish();
+  }
+  if (S.step === 'q') {
+    const resume = async () => { const q = curQ(); await say(F_.resume.replace('{q}', q.charAt(0).toLocaleLowerCase('tr') + q.slice(1))); };
+    if (isQ(t)) { if (!(await answerQuestion(t, r))) await say(F_.q_unknown); return resume(); }
+    if (intentOf(r, ['i-thanks', 'i-greet']) && toks(t).length <= 3) { await say(F_.thanks_mid); return resume(); }
+    const skip = /^(bilmiyorum|emin degilim|gec|farketmez|fark etmez|sonra|bilmem|idk|not sure|skip|don ?t know|no idea|whatever)/.test(norm(t).trim());
+    S.ans.push([G[S.g].qs[S.qi][0], skip ? '-' : t.slice(0, 200)]); S.qi++; save();
+    await say(skip ? F_.skip_ack : pick(F_.ack) + (!S.tip && G[S.g].tip ? ' ' + G[S.g].tip : ''));
+    S.tip = true; save();
+    if (S.qi < G[S.g].qs.length) return say(curQ());
+    return finish();
+  }
+  // sohbet tamamlandıktan sonra: soruları cevapla, yeni konu açılırsa onu da konuş
+  const g = groupOf(r);
+  if (!isQ(t) && g && g.s >= 2.2 && g.g !== S.g) { await say(F_.new_topic); return startGroup(g.g); }
+  if (await answerQuestion(t, r)) return;
+  if (isQ(t)) { await say(C.fallback); links([{wa: 1, u: waUrl(C.wa_head + '\n' + t), t: C.wa}]); return; }
+  await say(pick(F_.smalltalk));
 }
-function toggle(v) {
-  open = v ?? !open; box.hidden = !open; fab.setAttribute('aria-expanded', open); fab.classList.toggle('on', open);
-  if (open) { loadKB(); if (!M.children.length) { bubble('a', C.hello); chips(); } setTimeout(() => IN.focus(), 50); } else fab.focus();
+
+async function remote(t) {  // yapay zekâ modu
+  const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 25000);
+  const r = await fetch(C.endpoint, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({lang: D.lang, page: location.pathname, messages: S.hist.slice(-16)}), signal: ctl.signal});
+  clearTimeout(tm); if (!r.ok) throw 0;
+  const j = await r.json(); let reply = (j && j.reply || '').trim(); if (!reply) throw 0;
+  let sum = null; const k = reply.indexOf('[[WHATSAPP]]');
+  if (k >= 0) { sum = reply.slice(k + 12).trim(); reply = reply.slice(0, k).trim(); }
+  if (reply) await say(reply.slice(0, 2000), false);
+  if (sum) links([{wa: 1, u: waUrl(C.wa_head + '\n\n' + sum.slice(0, 1200)), t: F_.wa_btn}]);
+}
+
+let busy = false;
+async function send(t) {
+  t = String(t).trim().slice(0, 500); if (!t || busy) return;
+  busy = true; CH.innerHTML = ''; push({k: 'b', w: 'u', t}); S.hist.push({role: 'user', content: t}); save();
+  try {
+    if (C.endpoint) { try { const d = document.createElement('div'); d.className = 'cb-b a t'; d.innerHTML = '<i></i><i></i><i></i>'; M.appendChild(d); M.scrollTop = M.scrollHeight; try { await remote(t); } finally { d.remove(); } }
+                      catch (_) { await local(t); } }
+    else await local(t);
+  } finally { busy = false; }
+}
+async function toggle(v) {
+  const open = v ?? box.hidden; box.hidden = !open; fab.setAttribute('aria-expanded', open); fab.classList.toggle('on', open);
+  if (!open) return fab.focus();
+  setTimeout(() => IN.focus(), 50); loadKB();
+  if (!M.children.length) S.log.forEach(draw);
+  if (S.step === 'start') { S.step = 'name'; save(); await say(F_.greet); }
+  else if (S.step === 'need' && !CH.children.length) chips(F_.need_chips);
 }
 fab.addEventListener('click', () => toggle());
 $('.cb-x', box).addEventListener('click', () => toggle(false));
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && open) toggle(false); });
-F.addEventListener('submit', e => { e.preventDefault(); const v = IN.value; IN.value = ''; ask(v); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !box.hidden) toggle(false); });
+FM.addEventListener('submit', e => { e.preventDefault(); const v = IN.value; IN.value = ''; send(v); });
+}
 }
