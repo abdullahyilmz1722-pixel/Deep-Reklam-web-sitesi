@@ -23,15 +23,14 @@ jobs:
       - name: Siteyi derle
         env:
           # Kendi alan adınızı aldığınızda: Settings > Secrets and variables > Actions > Variables > SITE_URL ve CUSTOM_DOMAIN
-          SITE_URL: ${{ vars.SITE_URL || format('https://{0}.github.io/{1}', github.repository_owner, github.event.repository.name) }}
+          SITE_URL: ${{ vars.SITE_URL || 'https://deep-reklam.com' }}
           FORM_ENDPOINT: ${{ vars.FORM_ENDPOINT }}
           CHAT_ENDPOINT: ${{ vars.CHAT_ENDPOINT }}
         run: python3 src/build.py
       - name: Bağlantı ve SEO kontrolü
         run: python3 src/check.py
-      - name: Özel alan adı (varsa)
-        if: ${{ vars.CUSTOM_DOMAIN != '' }}
-        run: echo "${{ vars.CUSTOM_DOMAIN }}" > _site/CNAME
+      - name: Özel alan adı (CNAME)
+        run: echo "${{ vars.CUSTOM_DOMAIN || 'deep-reklam.com' }}" > _site/CNAME
       - name: gh-pages dalına yayınla
         env:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -7,7 +7,7 @@ import chatbot
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(os.path.dirname(ROOT), "_site")
-SITE_URL = os.environ.get("SITE_URL", "https://abdullahyilmz1722-pixel.github.io/Deep-Reklam-web-sitesi").rstrip("/")
+SITE_URL = os.environ.get("SITE_URL", "https://deep-reklam.com").rstrip("/")
 FORM_ENDPOINT = os.environ.get("FORM_ENDPOINT", "")
 CHAT_ENDPOINT = os.environ.get("CHAT_ENDPOINT", "")
 import hashlib

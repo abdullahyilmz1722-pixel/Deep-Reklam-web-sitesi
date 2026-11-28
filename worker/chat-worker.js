@@ -5,7 +5,8 @@ import { KNOWLEDGE } from "./knowledge.js";
 
 const ALLOWED = [
   "https://abdullahyilmz1722-pixel.github.io",
-  // alan adınızı aldığınızda ekleyin, örn. "https://www.deepreklam.com"
+  "https://deep-reklam.com",
+  "https://www.deep-reklam.com",
 ];
 const MAX_MSG = 500, MAX_TURNS = 16, RATE = 20; // RATE: IP başına dakikada en fazla istek (sunucu örneği başına, en iyi çaba)
 const hits = new Map();
